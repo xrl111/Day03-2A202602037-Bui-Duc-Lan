@@ -98,6 +98,32 @@ class AnthropicProvider(BaseLLMProvider):
             return f"[Anthropic Exception]: {str(e)}"
 
 
+class GroqProvider(BaseLLMProvider):
+    """Groq Provider (Llama 3, Mixtral, Gemma)"""
+    def __init__(self, api_key: str = None, model: str = None):
+        self.api_key = api_key or os.getenv("GROQ_API_KEY")
+        self.model_name = model or os.getenv("LLM_MODEL") or "llama-3.1-8b-instant"
+        
+    def generate(self, prompt: str, system_prompt: str = "") -> str:
+        if not self.api_key or self.api_key == "your_groq_api_key_here":
+            return "[Groq Error]: Chưa cấu hình GROQ_API_KEY trong file .env!"
+        try:
+            import groq
+            client = groq.Groq(api_key=self.api_key)
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+            
+            response = client.chat.completions.create(
+                model=self.model_name,
+                messages=messages
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"[Groq Exception]: {str(e)}"
+
+
 class OpenRouterProvider(BaseLLMProvider):
     """OpenRouter Provider (Hỗ trợ gọi mọi model qua OpenRouter API)"""
     def __init__(self, api_key: str = None, model: str = None):
@@ -133,11 +159,19 @@ class OpenRouterProvider(BaseLLMProvider):
 
 class MockProvider(BaseLLMProvider):
     """Offline Mock Provider (Cho bài test không cần kết nối API)"""
+    def __init__(self):
+        self.step = 0
+        
     def generate(self, prompt: str, system_prompt: str = "") -> str:
         text = prompt.lower()
-        if "thời tiết" in text and "hà nội" in text:
-            return "Thought: Cần tra cứu thời tiết Hà Nội.\nAction: get_weather['Hà Nội']"
-        return "🤖 [Mock Provider]: Phản hồi giả lập offline cho bài test."
+        self.step += 1
+        
+        # Nếu đang ở vòng lặp 1 (chưa có Observation)
+        if "observation:" not in text:
+            return "Thought: Người dùng báo cáo tình trạng mất trí nhớ tạm thời (Amnesia) và có hành vi không kiểm soát. Đây là dấu hiệu cần can thiệp tâm lý.\nAction: lookup_counseling_resource[\"Amnesia\"]"
+        
+        # Nếu đã ở vòng lặp 2 (đã có Observation)
+        return "Thought: Tôi đã có thông tin về các trung tâm hỗ trợ tâm lý.\nFinal Answer: Triệu chứng mất trí nhớ của bạn khá nghiêm trọng. Xin lưu ý tôi không phải bác sĩ y khoa, nhưng bạn nên liên hệ ngay đường dây nóng: 1900-1234 (Viện Tâm thần học) để được hỗ trợ kịp thời!"
 
 
 def get_llm_provider(provider_name: str = None) -> BaseLLMProvider:
@@ -152,6 +186,8 @@ def get_llm_provider(provider_name: str = None) -> BaseLLMProvider:
         return AnthropicProvider()
     elif name == "openrouter":
         return OpenRouterProvider()
+    elif name == "groq":
+        return GroqProvider()
     else:
         return MockProvider()
 

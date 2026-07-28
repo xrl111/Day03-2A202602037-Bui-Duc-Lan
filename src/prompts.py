@@ -47,7 +47,7 @@ BẮT ĐẦU:
 """
 
 # 🛡️ GUARDRAILS CONFIGURATION (PHANH AN TOÀN)
-MAX_ITERATIONS = 3  # Giới hạn tối đa 3 vòng lặp Thought-Action để tránh lặp vô tận
+MAX_ITERATIONS = 5  # Tăng giới hạn lên 5 để model có thời gian nhận Observation và trả lời
 TIMEOUT_SECONDS = 10  # Timeout cho mỗi lần gọi tool
 
 # Phanh cứng cấp code — app.py PHẢI gọi contains_crisis_signal() TRƯỚC khi vào vòng lặp

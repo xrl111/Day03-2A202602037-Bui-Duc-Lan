@@ -138,6 +138,29 @@ if __name__ == "__main__":
     model_name = getattr(provider, "model_name", "Offline Mock Mode")
     print(f"🔌 LLM Provider đang hoạt động: {provider.__class__.__name__} (Model: {model_name})")
     
+    if "--interactive" in sys.argv or "-i" in sys.argv:
+        print("\n" + "="*50)
+        print("🗣️ CHẾ ĐỘ CHAT TƯƠNG TÁC TRỰC TIẾP VỚI REACT AGENT")
+        print("Nhập 'exit' hoặc 'quit' để thoát.")
+        print("="*50)
+        
+        while True:
+            try:
+                user_query = input("\n👤 Bạn: ").strip()
+                if not user_query:
+                    continue
+                if user_query.lower() in ['exit', 'quit']:
+                    print("👋 Tạm biệt!")
+                    break
+                run_react_agent(user_query, provider)
+            except KeyboardInterrupt:
+                print("\n👋 Tạm biệt!")
+                break
+            except Exception as e:
+                print(f"\n❌ Đã xảy ra lỗi: {str(e)}")
+        
+        sys.exit(0)
+        
     tests = load_test_cases()
     print(f"✅ Đã tải thành công {len(tests)} Test Cases từ config/test_cases.json\n")
     
