@@ -369,6 +369,308 @@ def lookup_counseling_resource(topic: str = "general") -> List[Dict[str, str]]:
         ]
 
 
+def score_clinical_assessment(test_type: str, answers: Dict[str, int]) -> Dict[str, Any]:
+    """
+    Chấm điểm bài test tâm lý lâm sàng ngắn (PHQ-9 cho Trầm cảm hoặc GAD-7 cho Lo âu) và phân loại mức độ nghiêm trọng.
+    
+    Hàm tính toán thuần offline dựa trên quy tắc chấm điểm tiêu chuẩn:
+    - PHQ-9 (Max 27đ): 0-4 (Bình thường), 5-9 (Nhẹ), 10-14 (Vừa), 15-19 (Nặng), 20-27 (Rất nặng)
+    - GAD-7 (Max 21đ): 0-4 (Bình thường), 5-9 (Nhẹ), 10-14 (Vừa), 15-21 (Nặng)
+
+    Args:
+        test_type (str): Chuỗi nhận diện loại test ("PHQ-9" hoặc "GAD-7").
+        answers (dict): Dictionary chứa mã câu hỏi (ví dụ "q1", "q2") và điểm số từng câu (số nguyên từ 0 đến 3).
+
+    Returns:
+        dict: Kết quả đánh giá bao gồm:
+            - "test_type" (str): Tên loại bài test đã chấm ("PHQ-9" hoặc "GAD-7").
+            - "total_score" (int): Tổng điểm số đạt được.
+            - "max_score" (int): Điểm tối đa của bài test (27 với PHQ-9, 21 với GAD-7).
+            - "severity" (str): Phân loại mức độ nghiêm trọng bằng tiếng Việt.
+            - "summary" (str): Tóm tắt kết quả đánh giá ngắn gọn.
+            - "error" (bool): Cờ báo lỗi (True nếu đầu vào không hợp lệ).
+            - "message" (str, optional): Thông báo chi tiết nếu xảy ra lỗi.
+    """
+    try:
+        if not isinstance(test_type, str) or not test_type.strip():
+            return {
+                "error": True,
+                "message": "Tên bài test ('test_type') không hợp lệ.",
+                "test_type": "Unknown",
+                "total_score": 0,
+                "max_score": 0,
+                "severity": "Không xác định",
+                "summary": "Không thể chấm điểm do thiếu thông tin loại bài test."
+            }
+
+        norm_type = test_type.strip().upper()
+        if norm_type in ["PHQ-9", "PHQ9"]:
+            test_name = "PHQ-9"
+            max_score = 27
+        elif norm_type in ["GAD-7", "GAD7"]:
+            test_name = "GAD-7"
+            max_score = 21
+        else:
+            return {
+                "error": True,
+                "message": f"Loại bài test '{test_type}' không được hỗ trợ. Chỉ hỗ trợ 'PHQ-9' hoặc 'GAD-7'.",
+                "test_type": test_type,
+                "total_score": 0,
+                "max_score": 0,
+                "severity": "Không xác định",
+                "summary": "Loại bài test không nằm trong danh mục hỗ trợ."
+            }
+
+        if not isinstance(answers, dict) or not answers:
+            return {
+                "error": True,
+                "message": "Đầu vào 'answers' phải là một dictionary chứa câu trả lời và điểm số.",
+                "test_type": test_name,
+                "total_score": 0,
+                "max_score": max_score,
+                "severity": "Không xác định",
+                "summary": "Dữ liệu câu trả lời bị rỗng hoặc sai định dạng."
+            }
+
+        total_score = 0
+        for q_id, val in answers.items():
+            try:
+                score_val = int(val)
+                if not (0 <= score_val <= 3):
+                    return {
+                        "error": True,
+                        "message": f"Điểm số cho câu '{q_id}' phải là số nguyên từ 0 đến 3 (nhận được {val}).",
+                        "test_type": test_name,
+                        "total_score": 0,
+                        "max_score": max_score,
+                        "severity": "Không xác định",
+                        "summary": f"Điểm số của câu '{q_id}' nằm ngoài khoảng [0, 3]."
+                    }
+                total_score += score_val
+            except (ValueError, TypeError):
+                return {
+                    "error": True,
+                    "message": f"Điểm số cho câu '{q_id}' không đúng định dạng số nguyên.",
+                    "test_type": test_name,
+                    "total_score": 0,
+                    "max_score": max_score,
+                    "severity": "Không xác định",
+                    "summary": f"Câu '{q_id}' chứa điểm số không đúng định dạng."
+                }
+
+        # Phân loại mức độ nghiêm trọng (Severity Classification)
+        severity = "Bình thường"
+        if test_name == "PHQ-9":
+            if 0 <= total_score <= 4:
+                severity = "Bình thường"
+            elif 5 <= total_score <= 9:
+                severity = "Nhẹ"
+            elif 10 <= total_score <= 14:
+                severity = "Vừa"
+            elif 15 <= total_score <= 19:
+                severity = "Nặng"
+            elif 20 <= total_score <= 27:
+                severity = "Rất nặng"
+        elif test_name == "GAD-7":
+            if 0 <= total_score <= 4:
+                severity = "Bình thường"
+            elif 5 <= total_score <= 9:
+                severity = "Nhẹ"
+            elif 10 <= total_score <= 14:
+                severity = "Vừa"
+            elif 15 <= total_score <= 21:
+                severity = "Nặng"
+
+        summary = f"Đánh giá lâm sàng {test_name}: Tổng điểm {total_score}/{max_score} - Mức độ: {severity}."
+
+        return {
+            "error": False,
+            "test_type": test_name,
+            "total_score": total_score,
+            "max_score": max_score,
+            "severity": severity,
+            "summary": summary
+        }
+
+    except Exception as e:
+        return {
+            "error": True,
+            "message": f"Lỗi trong quá trình tính điểm đánh giá lâm sàng: {str(e)}",
+            "test_type": test_type if isinstance(test_type, str) else "Unknown",
+            "total_score": 0,
+            "max_score": 0,
+            "severity": "Không xác định",
+            "summary": "Không thể xử lý bài test lâm sàng."
+        }
+
+
+def suggest_grounding_technique(state: str) -> Dict[str, str]:
+    """
+    Đề xuất kỹ thuật trị liệu "nối đất" (grounding) ngay lập tức khi phát hiện người dùng bị lo âu, hoảng loạn hoặc căng thẳng.
+    
+    Hàm sử dụng logic khớp từ khóa offline (Rule-based Keyword Match):
+    - Chứa "hoảng loạn" / "panic": Kỹ thuật 5-4-3-2-1
+    - Chứa "lo âu" / "căng thẳng": Kỹ thuật thở hộp (Box Breathing)
+    - Khác: Kỹ thuật nhận thức cơ thể (Body Scan)
+
+    Args:
+        state (str): Chuỗi mô tả trạng thái của người dùng (ví dụ: "hoảng loạn", "lo âu", "căng thẳng").
+
+    Returns:
+        dict: Thông tin kỹ thuật trị liệu đề xuất bao gồm:
+            - "technique_name" (str): Tên kỹ thuật trị liệu.
+            - "instructions" (str): Hướng dẫn thực hiện chi tiết từng bước bằng tiếng Việt.
+            - "target_state" (str): Trạng thái ứng phó được nhận diện.
+    """
+    try:
+        if not isinstance(state, str) or not state.strip():
+            state_clean = ""
+        else:
+            state_clean = state.lower().strip()
+
+        if "hoảng loạn" in state_clean or "panic" in state_clean:
+            technique_name = "Kỹ thuật Nối đất 5-4-3-2-1 (5-4-3-2-1 Grounding Technique)"
+            instructions = (
+                "Hãy dừng lại, quan sát xung quanh và thực hiện theo 5 bước:\n"
+                "1. Nhận biết 5 thứ bạn nhìn thấy xung quanh.\n"
+                "2. Nhận biết 4 thứ bạn có thể chạm vào ngay lúc này.\n"
+                "3. Nhận biết 3 âm thanh bạn lắng nghe được.\n"
+                "4. Nhận biết 2 mùi hương bạn ngửi thấy.\n"
+                "5. Nhận biết 1 vị bạn cảm nhận được trên lưỡi.\n"
+                "Hít thở sâu và chậm rãi sau mỗi bước để lấy lại sự bình tĩnh."
+            )
+            target_state = "hoảng loạn"
+        elif "lo âu" in state_clean or "căng thẳng" in state_clean or "anxiety" in state_clean or "stress" in state_clean:
+            technique_name = "Kỹ thuật Thở hộp (Box Breathing)"
+            instructions = (
+                "Thực hiện chu kỳ thở 4 thì để cân bằng hệ thần kinh:\n"
+                "1. Hít vào từ từ qua mũi trong 4 giây.\n"
+                "2. Giữ hơi thở lại trong 4 giây.\n"
+                "3. Thở ra chậm rãi qua miệng trong 4 giây.\n"
+                "4. Giữ phổi rỗng trong 4 giây.\n"
+                "Lặp lại chu kỳ từ 4 đến 6 lần."
+            )
+            target_state = "lo âu / căng thẳng"
+        else:
+            technique_name = "Kỹ thuật Nhận thức Cơ thể (Body Scan)"
+            instructions = (
+                "Thực hiện thư giãn và kết nối với cơ thể:\n"
+                "1. Nhắm mắt nhẹ nhàng và cảm nhận đôi bàn chân đang tiếp xúc chắc chắn với mặt đất.\n"
+                "2. Thả lỏng toàn bộ cơ vai, cổ và khuôn mặt.\n"
+                "3. Tập trung sự chú ý vào nhịp thở tự nhiên lên xuống ở vùng bụng.\n"
+                "4. Lần lượt quét qua các phần cơ thể và giải phóng mọi cảm giác căng cứng theo mỗi nhịp thở ra."
+            )
+            target_state = "mặc định / nhận thức chung"
+
+        return {
+            "technique_name": technique_name,
+            "instructions": instructions,
+            "target_state": target_state
+        }
+
+    except Exception as e:
+        return {
+            "technique_name": "Kỹ thuật Thở sâu cơ bản",
+            "instructions": f"Hít vào thật sâu và thở ra từ từ để giải tỏa áp lực. (Chi tiết lỗi: {str(e)})",
+            "target_state": "lỗi xử lý"
+        }
+
+
+def analyze_cognitive_distortion(text: str) -> Dict[str, Any]:
+    """
+    Nhận diện sơ bộ các méo mó nhận thức (Cognitive Distortions) trong lời kể của người dùng.
+    
+    Hàm tính toán offline dựa trên từ khóa và biểu thức chính quy (Regex/Keyword Rule-based):
+    - Tư duy trắng đen (All-or-Nothing): "không bao giờ", "chắc chắn thất bại", "chẳng ra gì", "luôn luôn sai"
+    - Đọc tâm trí (Mind Reading): "chắc chắn họ nghĩ", "ai cũng thấy", "họ đang cười nhạo"
+    - Câu lệnh Phải (Should Statements): "đáng lẽ ra phải", "tôi phải", "nhất định phải"
+
+    Args:
+        text (str): Đoạn văn bản / lời kể thô nhập từ người dùng.
+
+    Returns:
+        dict: Kết quả phân tích bao gồm:
+            - "has_distortion" (bool): True nếu phát hiện ít nhất một méo mó nhận thức.
+            - "detected" (list[dict]): Danh sách các lỗi nhận diện được, mỗi lỗi gồm:
+                + "type" (str): Tên phân loại méo mó nhận thức.
+                + "matched_phrase" (str): Cụm từ phát hiện được.
+                + "reframe" (str): Câu hỏi / Lời gợi ý phản tư giúp Agent hướng dẫn user tái cấu trúc nhận thức.
+    """
+    try:
+        if not isinstance(text, str) or not text.strip():
+            return {
+                "has_distortion": False,
+                "detected": []
+            }
+
+        text_lower = text.lower()
+        detected_list: List[Dict[str, str]] = []
+
+        # 1. Tư duy trắng đen (All-or-Nothing Thinking)
+        all_or_nothing_patterns = [
+            ("không bao giờ", "không bao giờ"),
+            ("chắc chắn thất bại", "chắc chắn thất bại"),
+            ("chẳng ra gì", "chẳng ra gì"),
+            ("luôn luôn sai", "luôn luôn sai"),
+            ("luôn sai", "luôn sai"),
+            ("hoàn toàn thất bại", "hoàn toàn thất bại")
+        ]
+        for pattern, matched_kw in all_or_nothing_patterns:
+            if pattern in text_lower:
+                detected_list.append({
+                    "type": "Tư duy trắng đen (All-or-Nothing Thinking)",
+                    "matched_phrase": matched_kw,
+                    "reframe": "Có thực sự là 'hoàn toàn' hay 'không bao giờ' không? Liệu có trường hợp ngoại lệ nào hoặc khoảng xám nào ở giữa không?"
+                })
+                break # Mỗi loại chỉ lấy 1 khớp đại diện
+
+        # 2. Đọc tâm trí (Mind Reading)
+        mind_reading_patterns = [
+            ("chắc chắn họ nghĩ", "chắc chắn họ nghĩ"),
+            ("ai cũng thấy", "ai cũng thấy"),
+            ("họ đang cười nhạo", "họ đang cười nhạo"),
+            ("mọi người đều nghĩ", "mọi người đều nghĩ"),
+            ("họ xem thường", "họ xem thường")
+        ]
+        for pattern, matched_kw in mind_reading_patterns:
+            if pattern in text_lower:
+                detected_list.append({
+                    "type": "Đọc tâm trí (Mind Reading)",
+                    "matched_phrase": matched_kw,
+                    "reframe": "Bạn có bằng chứng rõ ràng và khách quan cho thấy họ đang nghĩ như vậy không, hay đó chỉ là suy đoán của bản thân?"
+                })
+                break
+
+        # 3. Câu lệnh Phải (Should Statements)
+        should_patterns = [
+            ("đáng lẽ ra phải", "đáng lẽ ra phải"),
+            ("đáng lẽ phải", "đáng lẽ phải"),
+            ("tôi phải", "tôi phải"),
+            ("nhất định phải", "nhất định phải"),
+            ("bắt buộc phải", "bắt buộc phải")
+        ]
+        for pattern, matched_kw in should_patterns:
+            if pattern in text_lower:
+                detected_list.append({
+                    "type": "Câu lệnh Phải (Should Statements)",
+                    "matched_phrase": matched_kw,
+                    "reframe": "Thay vì đặt áp lực bằng từ 'phải', nếu thay bằng 'tôi mong muốn' hoặc 'tôi ưu tiên' thì cảm xúc của bạn sẽ thay đổi thế nào?"
+                })
+                break
+
+        return {
+            "has_distortion": len(detected_list) > 0,
+            "detected": detected_list
+        }
+
+    except Exception as e:
+        return {
+            "has_distortion": False,
+            "detected": [],
+            "error_message": f"Lỗi phân tích méo mó nhận thức: {str(e)}"
+        }
+
+
 # ==============================================================================
 # AGENT TOOL REGISTRY (ROLE 2)
 # ==============================================================================
@@ -376,6 +678,9 @@ AVAILABLE_TOOLS = {
     "score_personality_test": score_personality_test,
     "detect_crisis_signal": detect_crisis_signal,
     "lookup_counseling_resource": lookup_counseling_resource,
+    "score_clinical_assessment": score_clinical_assessment,
+    "suggest_grounding_technique": suggest_grounding_technique,
+    "analyze_cognitive_distortion": analyze_cognitive_distortion,
 }
 
 
@@ -413,4 +718,37 @@ if __name__ == "__main__":
     print(f"Output: Tìm thấy {len(res3)} tài nguyên:")
     for item in res3:
         print(f" - {item['name']} | Hotline: {item['phone']} | Giờ: {item['operating_hours']}")
+
+    print("\n--- Test 4: score_clinical_assessment (PHQ-9) ---")
+    phq9_answers = {"q1": 2, "q2": 3, "q3": 1, "q4": 2, "q5": 3, "q6": 2, "q7": 1, "q8": 2, "q9": 1}
+    res4 = score_clinical_assessment("PHQ-9", phq9_answers)
+    print(f"Test PHQ-9 Input: {phq9_answers}")
+    print(f"Output: total_score={res4['total_score']}/{res4['max_score']}, severity='{res4['severity']}', error={res4['error']}")
+    print(f"Summary: {res4['summary']}")
+
+    print("\n--- Test 5: score_clinical_assessment (GAD-7) ---")
+    gad7_answers = {"q1": 1, "q2": 1, "q3": 0, "q4": 1, "q5": 2, "q6": 0, "q7": 1}
+    res5 = score_clinical_assessment("GAD-7", gad7_answers)
+    print(f"Test GAD-7 Input: {gad7_answers}")
+    print(f"Output: total_score={res5['total_score']}/{res5['max_score']}, severity='{res5['severity']}', error={res5['error']}")
+    print(f"Summary: {res5['summary']}")
+
+    print("\n--- Test 6: suggest_grounding_technique ('hoảng loạn') ---")
+    res6 = suggest_grounding_technique("Tôi đang thấy rất hoảng loạn và khó thở")
+    print(f"Technique: {res6['technique_name']} (Target: {res6['target_state']})")
+    print(f"Instructions:\n{res6['instructions']}")
+
+    print("\n--- Test 7: suggest_grounding_technique ('lo âu') ---")
+    res7 = suggest_grounding_technique("Tôi cảm thấy lo âu và căng thẳng áp lực công việc")
+    print(f"Technique: {res7['technique_name']} (Target: {res7['target_state']})")
+
+    print("\n--- Test 8: analyze_cognitive_distortion ---")
+    test8_input = "Tôi làm việc này chắc chắn thất bại rồi, ai cũng thấy tôi tệ hại. Đáng lẽ ra phải làm tốt hơn."
+    res8 = analyze_cognitive_distortion(test8_input)
+    print(f"Input: '{test8_input}'")
+    print(f"has_distortion: {res8['has_distortion']}")
+    for item in res8['detected']:
+        print(f" - [{item['type']}] Khớp cụm từ: '{item['matched_phrase']}'")
+        print(f"   Reframe: {item['reframe']}")
+
     print("==================================================")
