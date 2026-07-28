@@ -24,7 +24,8 @@ Bài Lab giúp bạn hiểu rõ sự tiến hóa qua 4 cấp độ của hệ th
 📁 Day-3-Lab-Chatbot-vs-react-agent-E402/
 ├── 📄 README.md                 <-- 📘 Tổng quan bài Lab & Thang điểm
 ├── 📄 .env.example              <-- 🔑 File mẫu API Key
-├── 📄 requirements.txt          <-- 📦 Thư viện cần cài đặt
+├── 📄 requirements.txt          <-- 📦 Thư viện cần cài đặt (cho CLI)
+├── 📄 requirements-web.txt      <-- 📦 Thư viện cần cài đặt (cho Web UI)
 │
 ├── 📁 config/                   <-- 🛠️ CẤU HÌNH & DỮ LIỆU
 │   └── 📄 test_cases.json       <-- 🟢 [Role 1] Bộ đề 5 Test Cases thử thách AI
@@ -32,7 +33,10 @@ Bài Lab giúp bạn hiểu rõ sự tiến hóa qua 4 cấp độ của hệ th
 ├── 📁 src/                      <-- 💻 MÃ NGUỒN PYTHON (BOILERPLATE)
 │   ├── 📄 tools.py              <-- 🛠️ [Role 2] Khai báo các công cụ (Tools)
 │   ├── 📄 prompts.py            <-- 🧠 [Role 3] ReAct System Prompt & Guardrails
-│   └── 📄 app.py                <-- 🚀 [Role 4] Core App ghép nối & chạy ReAct Loop
+│   ├── 📄 providers.py          <-- 🔌 Multi-Provider LLM Adapter (Hỗ trợ Groq)
+│   ├── 📄 app.py                <-- 🚀 [Role 4] Core App ghép nối & chạy ReAct Loop (Chế độ CLI)
+│   ├── 📄 web.py                <-- 🌐 Backend FastAPI hỗ trợ SSE Streaming (Web UI)
+│   └── 📁 static/               <-- 🎨 Frontend (HTML/CSS/JS) với giao diện Premium Glassmorphism
 │
 └── 📁 docs/                     <-- 📚 TÀI LIỆU HƯỚNG DẪN & BÁO CÁO
     ├── 📄 CODELAB.md            <-- 🎓 [LMS Format] Hướng dẫn thực hành từng bước Codelab
@@ -71,3 +75,25 @@ timeline
 
 > 🚀 **BẮT ĐẦU LÀM BÀI**:
 > Vui lòng mở sổ tay thực hành 👉 **[PHAN_CONG_CONG_VIEC.md](file:///c:/Users/Admin/Documents/VinUni/LabCoachVin/LabKeyCoach/Day-3-Lab-Chatbot-vs-react-agent-E402/docs/PHAN_CONG_CONG_VIEC.md)** để xem phân vai và checklist công việc cụ thể cho từng thành viên!
+
+---
+
+### 🌐 5. HƯỚNG DẪN CHẠY DỰ ÁN (MỚI: BẢN PREMIUM WEB UI)
+
+Dự án đã được nâng cấp với giao diện **Web UI Glassmorphism** và hỗ trợ **Groq Provider** cùng cơ chế Streaming (Server-Sent Events) theo thời gian thực.
+
+**👉 Cài đặt thư viện Web:**
+```bash
+pip install -r requirements-web.txt
+```
+
+**👉 Chạy giao diện Web (FastAPI):**
+```bash
+python -m uvicorn src.web:app --host 127.0.0.1 --port 8000 --reload
+```
+Sau đó truy cập trình duyệt tại `http://127.0.0.1:8000` để sử dụng.
+
+**👉 Chạy giao diện CLI (Interactive Chat):**
+```bash
+python src/app.py --interactive
+```
