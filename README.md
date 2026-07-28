@@ -97,3 +97,9 @@ Sau đó truy cập trình duyệt tại `http://127.0.0.1:8000` để sử dụ
 ```bash
 python src/app.py --interactive
 ```
+Team member:
+Bùi Đức Lân - 2A202602037 - Integrator
+Nguyễn Minh Hiếu - 2A202601685 - Observability
+Nguyễn Thanh Tùng - 2A202601871 - Tool Engineer
+Nguyễn Hoài Nam - 2A202602016 - Promt Engineer
+Trần Đoàn Quang Vũ - 2A202601999 - Product Architect
