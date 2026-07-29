@@ -7,11 +7,11 @@
 
 | Tiêu chí | Điểm (1-5) | Lý do đánh giá |
 | :--- | :---: | :--- |
-| 🧠 **Multi-step Reasoning** | `4/5` | Cần suy luận từ tra cứu thời tiết đến chọn trang phục. |
-| 🛠️ **Tool Interaction** | `5/5` | Cần tra cứu dữ liệu thời gian thực qua API thời tiết/chuyến bay. |
-| 🔀 **Dynamic Decision** | `4/5` | Kết quả bước trước quyết định hành động bước sau. |
-| ⏳ **Long Horizon** | `3/5` | Quy trình gồm 2-3 bước xử lý ngắn. |
-| **TỔNG ĐIỂM FIT** | **16/20** | **KẾT LUẬN: BÀI TOÁN RẤT NÊN DÙNG REACT AGENT!** |
+| 🧠 **Multi-step Reasoning** | `5/5` | Cần hỏi dò nhiều lượt, tổng hợp câu trả lời rồi mới tư vấn |
+| 🛠️ **Tool Interaction** | `5/5` | Cần tool chấm test tâm lý + tool tra cứu hotline khủng hoảng. |
+| 🔀 **Dynamic Decision** | `5/5` | Có rẽ nhánh bắt buộc: phát hiện nguy hiểm → đổi hẳn luồng xử lý. |
+| ⏳ **Long Horizon** | `4/5` | Một phiên "khai quật" kéo dài nhiều lượt hỏi-đáp.|
+| **TỔNG ĐIỂM FIT** | **19/20** | **KẾT LUẬN: BÀI TOÁN RẤT NÊN DÙNG REACT AGENT!** |
 
 ---
 

@@ -19,8 +19,11 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 # Import các thành phần từ file của Role 2, Role 3 & Multi-Provider Adapter
-from tools import AVAILABLE_TOOLS, get_weather, search_flights
-from prompts import CHATBOT_BASELINE_PROMPT, REACT_SYSTEM_PROMPT, MAX_ITERATIONS
+from tools import AVAILABLE_TOOLS
+from prompts import (
+    CHATBOT_BASELINE_PROMPT, REACT_SYSTEM_PROMPT, MAX_ITERATIONS,
+    contains_crisis_signal, CRISIS_RESPONSE, is_valid_react_step, MALFORMED_OUTPUT_FALLBACK
+)
 from providers import get_llm_provider
 
 load_dotenv()
@@ -55,27 +58,74 @@ def run_react_agent(user_query: str, provider):
     Dựng vòng lặp ReAct Agent (Thought -> Action -> Observation) có Guardrails.
     """
     print(f"\n🤖 [REACT AGENT] Câu hỏi: {user_query}")
+    
+    # 1. Phanh cứng cấp code: Kiểm tra tín hiệu khủng hoảng ngay từ đầu
+    if contains_crisis_signal(user_query):
+        print("\n🛡️ GUARDRAIL TRIGGERED: Phát hiện tín hiệu khủng hoảng!")
+        print(f"🏁 Final Answer: {CRISIS_RESPONSE}")
+        return
+
     step = 0
+    # Khởi tạo history với System Prompt và User Query
+    history = REACT_SYSTEM_PROMPT + f"\nUser: {user_query}\n"
     
     while step < MAX_ITERATIONS:
         step += 1
         print(f"\n--- 🔄 Vòng lặp ReAct (Step {step}/{MAX_ITERATIONS}) ---")
         
-        if step == 1:
-            print("🧠 Thought: Câu hỏi này cần tra cứu thời tiết thời gian thực.")
-            print("🛠️ Action: get_weather['Hà Nội']")
-            
-            # Thực thi tool
-            obs = get_weather("Hà Nội")
-            print(f"👁️ Observation: {obs}")
-            
-        elif step == 2:
-            print("🧠 Thought: Tôi đã có thông tin thời tiết Hà Nội, giờ tôi có thể tư vấn trang phục.")
-            print("🏁 Final Answer: Thời tiết Hà Nội hôm nay 28°C, nắng nhẹ. Bạn nên mặc áo phông thoáng mát!")
+        # Gọi LLM sinh suy luận/hành động
+        response = provider.generate(history)
+        print(f"{response}")
+        
+        # 2. Kiểm tra định dạng an toàn
+        if not is_valid_react_step(response):
+            print("\n🛡️ GUARDRAIL TRIGGERED: LLM sinh sai định dạng (thiếu Action/Final Answer).")
+            print(f"🏁 Final Answer: {MALFORMED_OUTPUT_FALLBACK}")
             break
             
+        history += response + "\n"
+        
+        # 3. Kiểm tra xem đã có Final Answer chưa
+        if "Final Answer:" in response:
+            print("\n✅ Agent đã tìm được câu trả lời cuối cùng.")
+            break
+            
+        # 4. Parse Action và thực thi Tool
+        import re
+        action_match = re.search(r"Action:\s*(\w+)\[(.*?)\]", response, re.DOTALL)
+        if action_match:
+            tool_name = action_match.group(1).strip()
+            tool_args_str = action_match.group(2).strip()
+            
+            print(f"\n🛠️ Đang gọi Tool: {tool_name} với tham số: {tool_args_str}")
+            
+            if tool_name in AVAILABLE_TOOLS:
+                tool_func = AVAILABLE_TOOLS[tool_name]
+                try:
+                    # Parse tham số: nếu giống dict thì load json, nếu không truyền chuỗi
+                    try:
+                        args = json.loads(tool_args_str)
+                        if isinstance(args, dict):
+                            obs = tool_func(args)
+                        else:
+                            obs = tool_func(tool_args_str)
+                    except json.JSONDecodeError:
+                        obs = tool_func(tool_args_str)
+                    
+                    obs_str = f"Observation: {obs}"
+                except Exception as e:
+                    obs_str = f"Observation: LỖI KHI GỌI TOOL - {str(e)}"
+            else:
+                obs_str = f"Observation: LỖI - Tool '{tool_name}' không tồn tại. Vui lòng chọn trong {list(AVAILABLE_TOOLS.keys())}."
+            
+            print(f"👁️ {obs_str}")
+            history += obs_str + "\n"
+        else:
+            obs_str = "Observation: Vui lòng cung cấp 'Action:' hợp lệ hoặc 'Final Answer:'."
+            history += obs_str + "\n"
+            
     if step >= MAX_ITERATIONS:
-        print(f"🛡️ GUARDRAIL TRIGGERED: Đã đạt giới hạn tối đa {MAX_ITERATIONS} bước. Ngắt lặp an toàn!")
+        print(f"\n🛡️ GUARDRAIL TRIGGERED: Đã đạt giới hạn tối đa {MAX_ITERATIONS} bước. Ngắt lặp an toàn!")
 
 
 if __name__ == "__main__":
@@ -88,6 +138,29 @@ if __name__ == "__main__":
     model_name = getattr(provider, "model_name", "Offline Mock Mode")
     print(f"🔌 LLM Provider đang hoạt động: {provider.__class__.__name__} (Model: {model_name})")
     
+    if "--interactive" in sys.argv or "-i" in sys.argv:
+        print("\n" + "="*50)
+        print("🗣️ CHẾ ĐỘ CHAT TƯƠNG TÁC TRỰC TIẾP VỚI REACT AGENT")
+        print("Nhập 'exit' hoặc 'quit' để thoát.")
+        print("="*50)
+        
+        while True:
+            try:
+                user_query = input("\n👤 Bạn: ").strip()
+                if not user_query:
+                    continue
+                if user_query.lower() in ['exit', 'quit']:
+                    print("👋 Tạm biệt!")
+                    break
+                run_react_agent(user_query, provider)
+            except KeyboardInterrupt:
+                print("\n👋 Tạm biệt!")
+                break
+            except Exception as e:
+                print(f"\n❌ Đã xảy ra lỗi: {str(e)}")
+        
+        sys.exit(0)
+        
     tests = load_test_cases()
     print(f"✅ Đã tải thành công {len(tests)} Test Cases từ config/test_cases.json\n")
     
